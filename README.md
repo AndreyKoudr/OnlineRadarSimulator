@@ -17,7 +17,7 @@ https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors/CORSRequestNotHttp
 
 It means that it is no longer allowed to load binary files from local<B>(!)</B> computer with an http (not https) page.
 It means that debugging of Javascripts can be only done with browsers with some "web-security" configuration options turned OFF.
-These are files in the Areas folder - they contain Earth surface geometry for an SRTM tile around Rio de Janeiro in
+These are two files in the Areas folder - they contain Earth surface geometry for an SRTM tile around Rio de Janeiro in
 the form convenient to supply data to WebGL.
 
 Format of the files can be understood from FillGLBuffers2() in LoadVBO.js.
