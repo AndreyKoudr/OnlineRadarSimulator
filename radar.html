@@ -1,0 +1,2026 @@
+﻿<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<title>MI Simulators | Online marine radar simulator</title>
+
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+</head>
+
+<body style="background-color: #FFFFFF;">
+
+<table width="1024" height="768" table border="0" cellpadding="0" cellspacing="0">
+	<tr>
+		<td colspan="3">
+			<div id="header" style="text-align:center;font-size:30px;color:#263B42;">
+				Online radar simulator
+			</div>			
+		</td>
+	</tr>
+	<tr bgcolor="#000000">
+		<td>
+			<div id="radarcanvasleft" title="Radar indicators">
+				<canvas id="canvasleft" width="125" height="768"></canvas>
+			</div>
+		</td>
+		<td>
+			<table width="100%" height="100%" table border="0" cellpadding="0" cellspacing="0">
+				<tr>
+					<td>
+						<div id="radarcanvastop" title="Radar indicators">
+							<canvas id="canvastop" width="668" height="86"></canvas>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<div id="PPIcanvas" title="Left mouse button to change cursor position">
+							<canvas id="canvasPPI" width="512" height="512"></canvas>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<div id="radarcanvasbottom" title="Radar indicators">
+							<canvas id="canvasbottom" width="668" height="170"></canvas>
+						</div>
+					</td>
+				</tr>
+			</table>
+		</td>
+		<td>
+			<div id="radarcanvasright" title="Radar controls">
+				<canvas id="canvasright" width="231" height="768"></canvas>
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td colspan="3">
+			<div class="footer">
+				Copyright 2015 MI Simulators
+			</div>
+		</td>
+	</tr>
+</table>
+
+
+<script id="shader-fs" type="x-shader/x-fragment">
+
+precision highp float;
+varying vec2 vTextureCoord;
+varying vec4 vColor;
+varying float vLightWeighting;
+varying float dx;
+varying float dy;
+varying float vRange;
+varying float vAngleCoef;
+
+uniform int uFlag;
+uniform sampler2D uSampler;
+uniform vec3 uDirectionalColor;
+uniform float uAngle0;
+uniform float uAngle1;
+uniform float uBrilliance;
+uniform float uGain;
+uniform float uTune;
+uniform float uRain;
+uniform float uFTC;
+
+const float PI = 3.1415926;
+
+float GetAngle(float dx, float dy)
+{
+	float a = 0.0;
+	if (abs(dy) < 0.000001)
+	{
+		if (dx < 0.0) a = 180.0;
+			else a = 0.0;
+	} else
+	{
+		if (dy >= 0.0)
+		{
+			if (dx >= 0.0)
+			{
+				a = (atan(dx / dy) * 180.0 / PI);
+			} else
+			{
+				a = (atan(dx / dy) * 180.0 / PI) + 360.0;
+			}
+		} else
+		{
+			a = (atan(dx / dy) * 180.0 / PI) + 180.0;
+		}
+	}
+	
+	return a;
+}
+
+void main(void) {
+  
+	float gain = uGain * 2.0 * (1.0 - abs(uTune - 0.67) * 0.3);
+	float FTCcoef = 8.0 * (1.0 + uFTC * 4.0);
+  
+	if (uFlag == 0)
+	{
+		float r = sqrt(dx * dx + dy * dy);
+		if (r > vRange)
+		{
+			discard;
+		} else
+		{
+			float a = GetAngle(dx,dy);
+			
+			float coef = vAngleCoef;
+			//if (a < uAngle0 || a > uAngle1)
+			//	coef = 0.75;
+			if (vLightWeighting <= (1.0 - gain) * 0.2 + 0.003) 
+			{
+				discard;
+			} else
+			{
+				gl_FragColor = vec4(uDirectionalColor * vLightWeighting * coef * uBrilliance * gain * FTCcoef,1.0);
+			}
+		}
+	} else if (uFlag == 1)
+	{
+		float r = sqrt(dx * dx + dy * dy);
+		if (r > vRange)
+		{
+			discard;
+		} else
+		{
+			vec4 c = texture2D(uSampler,vTextureCoord);
+			if (c[0] == 0.0 && c[1] == 0.0 && c[2] == 0.0)
+			{
+				discard;
+			} else
+			{
+				gl_FragColor = c;
+			}
+		}
+	} else if (uFlag == 2)
+	{
+		float r = sqrt(dx * dx + dy * dy);
+		if (r > vRange)
+		{
+			discard;
+		} else
+		{
+			float a = GetAngle(dx,dy);
+			
+			float coef = vAngleCoef;
+			//if (a < uAngle0 || a > uAngle1)
+			//	coef = 0.75;
+
+			if (vLightWeighting <= 0.0) 
+			{
+				discard;
+			} else
+			{
+				gl_FragColor = vec4(uDirectionalColor * vLightWeighting * gain * coef * uBrilliance * 16.0,1.0); 
+			}
+		}
+	}
+ }
+
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+
+attribute vec3 aVertexPosition;
+attribute vec3 aVertexNormal;
+attribute vec2 aTextureCoord;
+attribute vec4 aVertexColor;
+
+uniform sampler2D uSampler;
+uniform float uAntennaHeight;
+uniform float uBeamHeight2;
+uniform float uRange;
+uniform float uWaveHeight;
+uniform float uWindDirection;
+uniform float uRotAngle;
+uniform float uSea;
+uniform float uAngle0;
+
+uniform mat4 uMVMatrix;
+uniform mat4 uPMatrix;
+uniform mat3 uNMatrix;
+uniform vec3 uLightPosition;
+uniform int uFlag1;
+
+varying vec2 vTextureCoord;
+varying vec4 vColor;
+varying float vLightWeighting;
+varying float dx;
+varying float dy;
+varying float vRange;
+varying float vAngleCoef;
+
+const float PI = 3.14159265358979;
+
+float rseed = 1558911735.0;
+
+/*
+float rand(float x, float y){
+    return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453);
+}
+                                // from -1.0 to +1.0
+float random()
+{
+  rseed = rand(rseed,rseed / 13.0);
+  return (1.0 + rseed) * 0.5;
+}
+*/
+
+float GetAngle(float dx, float dy)
+{
+	float a = 0.0;
+	if (abs(dy) < 0.000000001)
+	{
+		if (dx < 0.0) a = 180.0;
+			else a = 0.0;
+	} else
+	{
+		if (dy >= 0.0)
+		{
+			if (dx >= 0.0)
+			{
+				a = (atan(dx / dy) * 180.0 / PI);
+			} else
+			{
+				a = (atan(dx / dy) * 180.0 / PI) + 360.0;
+			}
+		} else
+		{
+			a = (atan(dx / dy) * 180.0 / PI) + 180.0;
+		}
+	}
+	
+	return a;
+}
+
+void main(void) {
+
+  	dx = aVertexPosition[0] - uLightPosition[0];
+	dy = aVertexPosition[1] - uLightPosition[1];	
+	vRange = uRange;
+		                            // normalise angle and lighting directions
+	float an = uAngle0 * PI / 180.0;
+    vec3 angleDirection = vec3(sin(an),cos(an),0.0);
+                              // cross-product
+	vec3 lightDirection = normalize(vec3(dx,dy,0));						  
+    vec3 p = cross(angleDirection,lightDirection);
+                              // angle b/w vectors
+    float s = dot(angleDirection,lightDirection);
+    float ang = acos(s) * 180.0 / PI;
+                              // bring to 0..360
+    if (p[2] < 0.0) ang = 360.0 - ang;
+                              // bring to 0..1
+    vAngleCoef = 0.5 + (1.0 - ang / 360.0) * 0.5;
+
+	if (uFlag1 == 0)
+	{
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition,1.0);
+		vec3 normal = normalize(aVertexNormal);
+		vLightWeighting = -dot(normal,lightDirection);
+		
+	} else if (uFlag1 == 1)
+	{
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition,1.0);
+		vTextureCoord = aTextureCoord;
+	} else if (uFlag1 == 2)
+	{
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition,1.0);
+		
+		vec3 normal = normalize(aVertexNormal);
+								// wave addition to vLightWeighting
+		float waveweighting = 0.0;
+		
+		if (uWaveHeight > 0.0)
+		{
+								// approximate
+			float wavelen = uWaveHeight * 10.0;
+								// distance to centre
+			float rr = sqrt(dx * dx + dy * dy);
+								// random phase
+			//float r0 = wavelen * random();
+								// sine
+			//float s = sin((r0 + rr) * 2.0 * PI / wavelen);
+								// get beam angle with heading angle
+			float a = GetAngle(dy,dx) + uWindDirection;
+								// distance coef (fading from centre)
+								// r1 must be 4000.0 as well
+			float rcoef = 1.0 - rr / 4000.0;
+			if (rcoef < 0.0) rcoef = 0.0;
+								// min/max addition to dot product
+			float min = 0.01;
+			float max = 0.5 * uWaveHeight / 10.0;
+			
+			waveweighting = (min + (1.0 + sin(a * PI / 180.0)) * 0.5 * max) * pow(rcoef,1.0 + uSea * 4.0);
+		}
+		
+		vLightWeighting = -dot(normal,lightDirection) + waveweighting;
+	} else if (uFlag1 == 3)
+	{
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition,1.0);
+		
+		float height = (uLightPosition[2] > 0.0) ? uLightPosition[2] : 10.0;
+		float coef = aVertexPosition[2] / height;
+		if (coef > 1.0) coef = 1.0;
+		
+	//	vec3 normal = normalize(aVertexNormal);
+	//	vec3 lightingDirection = normalize(aVertexPosition - uLightPosition);
+		vLightWeighting = coef;
+
+		//gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition,1.0);
+		//vec3 normal = normalize(aVertexNormal);
+		//vec3 lightingDirection = normalize(aVertexPosition - uLightPosition);
+		//vLightWeighting = 1.0;
+	}
+}
+
+</script>
+
+<script type="text/javascript" src="./js/gl-matrix-min.js"></script>
+<script type="text/javascript" src="./js/vectormatrix_0.js"></script>
+<script type="text/javascript" src="./js/webgl-utils.js"></script>
+<script type="text/javascript" src="./js/LoadVBO.js"></script>
+<script type="text/javascript" src="./js/Math_1.js"></script>
+<script type="text/javascript" src="./js/String_2.js"></script>
+<script type="text/javascript" src="./js/PolarGrid.js"></script>
+<script type="text/javascript" src="./js/Transform_1.js"></script>
+<script type="text/javascript" src="./js/Geo_2.js"></script>
+<script type="text/javascript" src="./js/Ship_5.js"></script>
+<script type="text/javascript" src="./js/PPI_7.js"></script>
+<script type="text/javascript" src="./js/CanvasObject_1.js"></script>
+
+<script type="text/javascript">
+
+var loadScene = (function () 
+{
+								// important variables
+	var gl;
+	var terrainvboc = {};
+	var terrainvbom = {};
+	var wavesvbo = {};
+								// right panel contains buttons
+	var rightpanel = {};
+								// top panel contains indicators
+	var toppanel = {};
+								// left panel contains sliders
+	var leftpanel = {};
+								// bottom panel contains indicators
+	var bottompanel = {};
+								//===== 20-11-28
+								// full chart file name
+		var chartname = "S23W044001001";				
+								// bitmap with whole chart
+		var chartfile = "./Areas/" + chartname + ".png";	
+								// values to initialise standard chart
+		var latmin = -23.051659577;
+		var lonmin = -44.5686028633;
+		var latmax = -21.9442338424;
+		var lonmax = -42.4367334805;
+								// by default
+		var chartwidth = 800;
+		var chartheight = 600;
+								// chart with latmin,lonmin,latmax,lonmax
+								// and coordinate transformations
+		var chart = new Object();
+								// to redraw
+		var chartchanged = true;
+								// the same on instructor
+		var ichartchanged = true;
+								// bitmap to redraw
+		var chartbitmap;
+								// own ship
+		var ship = new Object();
+								// targets
+		var targets = new Array();
+								// chart cursor position
+		var cursorlat = 0.0;
+		var cursorlon = 0.0;
+								// PPI
+		var PPI = {};
+		var rangeindex = 3;
+		var targetselected = -1;
+		
+		var key;
+								//===== 20-11-28
+		
+	var wavestexture;
+	var screentexture;
+	var shaderProgram;
+	var offcanvas;
+	var offcontext;
+								// frame rate
+	var framespersec = 15;
+	var dt = 1.0 / framespersec;
+								// frame count
+	var framecount = 0;
+								// radar angle in degrees
+	var angle = 0.0;
+								// wind direction
+	var winddirection = 315.0;
+								// wave height in metres
+	var waveheight = 1.0;
+								// ship course and speed
+	var speedms = 12.0;
+								// lower left corner of area
+	var lat = 0.0;
+	var lon = 0.0;
+								// conversion from/to geodetic coordinates
+	var flatcoord = {};
+								// matrices
+	var mvMatrix = mat4.create();
+	var tempMatrix2 = mat4.create();
+	var tempMatrix = mat4.create();
+	var pMatrix = mat4.create();
+	var nMatrix = mat3.create();
+	
+	var DRAGGING_NONE = -1;
+								// dragging EBL/VRM 1
+	var DRAGGING_EV1 = 0;
+								// dragging guard zone 1
+	var DRAGGING_GZ1 = 1;
+								// current dragging
+	var dragging = DRAGGING_NONE;
+	
+								//===== this is ppi canvas =====================
+	mcanvas = document.getElementById('canvasPPI');
+
+	var MILE = 1852.0;
+								// ranges
+	var ranges = 	[0.5,1.0,2.0,4.0,8.0,16.0,32.0,64.0,128.0];							
+	var numrings = 	[  2,  4,  4,  4,  4,   4,   4,   4,    4];
+	
+								//===== init ppi ==============================
+	if (PPI == undefined || PPI.transform == undefined)
+	{
+		PPIInit(PPI,mcanvas.width,mcanvas.height);
+		PPI.range = ranges[rangeindex] * MILE;
+	}
+								// radar angle increment
+	var dangle = PPI.beamwidth;
+	
+								//===== right panel with buttons ===============
+								
+								// mouse pressed?
+	var rmousepressed = false;
+							
+	rightpanel.buttons = new Array();
+	
+	rightpanel.buttons[0] = new Object();
+	CanvasObjectInit(rightpanel.buttons[0],OBJECT_BUTTON,"RANGE -",9,17,114,53);
+	rightpanel.buttons[0].onMouseDown = function(x,y) 
+	{
+		if (rangeindex > 0)
+		{
+			rangeindex--;
+			PPI.range = ranges[rangeindex] * MILE;
+			SetTopIndicator(0,5,"RANGE " + ranges[rangeindex] + "nm");
+			if (PPI.rangerings)
+			{
+				SetTopIndicator(1,5,"RINGS " + ranges[rangeindex] / numrings[rangeindex] + "nm");
+			} else
+			{
+				SetTopIndicator(1,5,"");
+			}
+			
+			if (PPI.EV1.EV > EBLVRM_OFF)
+			{
+				if (PPI.EV1.VRM == 0.0 || PPI.EV1.VRM >= PPI.range)
+				{
+					PPI.EV1.VRM = PPI.range * 0.3333333;
+				}
+			}
+		}
+	}
+	
+	rightpanel.buttons[1] = new Object();
+	CanvasObjectInit(rightpanel.buttons[1],OBJECT_BUTTON,"RANGE +",117,17,221,53);
+	rightpanel.buttons[1].onMouseDown = function(x,y) 
+	{
+		if (rangeindex < ranges.length - 1)
+		{
+			rangeindex++;
+			PPI.range = ranges[rangeindex] * MILE;
+			SetTopIndicator(0,5,"RANGE " + ranges[rangeindex] + "nm");
+			if (PPI.rangerings)
+			{
+				SetTopIndicator(1,5,"RINGS " + ranges[rangeindex] / numrings[rangeindex] + "nm");
+			} else
+			{
+				SetTopIndicator(1,5,"");
+			}
+			
+			if (PPI.EV1.EV > EBLVRM_OFF)
+			{
+				if (PPI.EV1.VRM == 0.0 || PPI.EV1.VRM >= PPI.range)
+				{
+					PPI.EV1.VRM = PPI.range * 0.3333333;
+				}
+			}
+		}
+	}
+	
+	rightpanel.buttons[2] = new Object();
+	CanvasObjectInit(rightpanel.buttons[2],OBJECT_BUTTON,"RINGS ON/OFF",9,189,114,226);
+	rightpanel.buttons[2].onMouseDown = function(x,y) 
+	{
+		PPI.rangerings = (PPI.rangerings == RANGERINGS_ON) ? RANGERINGS_OFF : RANGERINGS_ON; 
+		if (PPI.rangerings)
+		{
+			SetTopIndicator(1,5,"RINGS " + ranges[rangeindex] / numrings[rangeindex] + "nm");
+		} else
+		{
+			SetTopIndicator(1,5,"");
+		}
+	}
+	
+	rightpanel.buttons[3] = new Object();
+	CanvasObjectInit(rightpanel.buttons[3],OBJECT_BUTTON,"SHIP SHM",117,189,221,226);
+	rightpanel.buttons[3].onMouseDown = function(x,y) 
+	{
+		PPI.headingline = HEADINGLINE_OFF;
+	}
+	rightpanel.buttons[3].onMouseUp = function(x,y) 
+	{
+		PPI.headingline = HEADINGLINE_ON;
+	}
+	rightpanel.buttons[3].onMouseLeave = function(x,y) 
+	{
+		PPI.headingline = HEADINGLINE_ON;
+	}
+	
+	rightpanel.buttons[4] = new Object();
+	CanvasObjectInit(rightpanel.buttons[4],OBJECT_BUTTON,"HEAD UP",9,75,78,112);
+	rightpanel.buttons[4].onMouseDown = function(x,y) 
+	{
+		PPI.headingmode = HMODE_HUP;
+		SetTopIndicator(2,5,"HEAD UP");
+	}
+	
+	rightpanel.buttons[5] = new Object();
+	CanvasObjectInit(rightpanel.buttons[5],OBJECT_BUTTON,"NORTH UP",81,75,149,112);
+	rightpanel.buttons[5].onMouseDown = function(x,y) 
+	{
+		PPI.headingmode = HMODE_NUP;
+		SetTopIndicator(2,5,"NORTH UP");
+	}
+	
+	rightpanel.buttons[6] = new Object();
+	CanvasObjectInit(rightpanel.buttons[6],OBJECT_BUTTON,"COURSE UP",152,75,221,112);
+	rightpanel.buttons[6].onMouseDown = function(x,y) 
+	{
+		PPI.headingmode = HMODE_CUP;
+		SetTopIndicator(2,5,"COURSE UP");
+	}
+	
+	rightpanel.buttons[7] = new Object();
+	CanvasObjectInit(rightpanel.buttons[7],OBJECT_BUTTON,"RELATIVE",9,132,114,168);
+	rightpanel.buttons[7].onMouseDown = function(x,y) 
+	{
+		PPI.motion = MOTION_RELATIVE;
+		PPI.motionstartx = 0;
+		PPI.motionstarty = 0;
+		SetTopIndicator(3,5,"MOTION REL");
+	}
+	rightpanel.buttons[7].active = false;
+	
+	rightpanel.buttons[8] = new Object();
+	CanvasObjectInit(rightpanel.buttons[8],OBJECT_BUTTON,"TRUE",117,132,221,168);
+	rightpanel.buttons[8].onMouseDown = function(x,y) 
+	{
+		PPI.motion = MOTION_TRUE;
+		PPI.motionstartx = ship.x;
+		PPI.motionstarty = ship.y;
+		SetTopIndicator(3,5,"MOTION TRUE");
+	}
+	rightpanel.buttons[8].active = false;
+	
+	rightpanel.buttons[9] = new Object();
+	CanvasObjectInit(rightpanel.buttons[9],OBJECT_BUTTON,"OFFSET",9,229,114,266);
+	rightpanel.buttons[9].onMouseDown = function(x,y) 
+	{
+		SetTopIndicator(0,4,"OFFSET");
+	}
+	rightpanel.buttons[9].active = false;
+	
+	rightpanel.buttons[10] = new Object();
+	CanvasObjectInit(rightpanel.buttons[10],OBJECT_BUTTON,"NO OFFSET",117,229,221,266);
+	rightpanel.buttons[10].onMouseDown = function(x,y) 
+	{
+		SetTopIndicator(0,4,"");
+	}
+	rightpanel.buttons[10].active = false;
+	
+	rightpanel.buttons[11] = new Object();
+	CanvasObjectInit(rightpanel.buttons[11],OBJECT_BUTTON,"SHOW/CHANGE",9,382,114,419);
+	rightpanel.buttons[11].onMouseDown = function(x,y) 
+	{
+		if (PPI.EV1.EV == EBLVRM_OFF)
+		{
+			PPI.EV1.EV = EBLVRM_ACTIVE;
+			if (PPI.EV1.VRM == 0.0 || PPI.EV1.VRM >= PPI.range)
+			{
+				PPI.EV1.VRM = PPI.range * 0.3333333;
+				PPI.EV1.EBL = 45.0;
+			}
+		} else if (PPI.EV1.EV == EBLVRM_ACTIVE)
+		{
+			PPI.EV1.EV = EBLVRM_ON;
+			SetTopIndicator(1,4,"EBL/VRM");
+		}
+	}
+	
+	rightpanel.buttons[12] = new Object();
+	CanvasObjectInit(rightpanel.buttons[12],OBJECT_BUTTON,"HIDE",117,382,221,419);
+	rightpanel.buttons[12].onMouseDown = function(x,y) 
+	{
+		PPI.EV1.EV = EBLVRM_OFF;
+		StopEV1BearingRange();
+		SetTopIndicator(1,4,"");
+	}
+
+	rightpanel.buttons[13] = new Object();
+	CanvasObjectInit(rightpanel.buttons[13],OBJECT_BUTTON,"SHOW/CHANGE",9,439,114,475);
+	rightpanel.buttons[13].onMouseDown = function(x,y) 
+	{
+	}
+	rightpanel.buttons[13].active = false;
+	
+	rightpanel.buttons[14] = new Object();
+	CanvasObjectInit(rightpanel.buttons[14],OBJECT_BUTTON,"HIDE",117,439,221,475);
+	rightpanel.buttons[14].onMouseDown = function(x,y) 
+	{
+	}
+	rightpanel.buttons[14].active = false;
+
+	rightpanel.buttons[15] = new Object();
+	CanvasObjectInit(rightpanel.buttons[15],OBJECT_BUTTON,"SHOW/CHANGE",9,495,114,531);
+	rightpanel.buttons[15].onMouseDown = function(x,y) 
+	{
+		if (PPI.GZ1.GZ == GRD_OFF)
+		{
+			PPI.GZ1.GZ = GRD_ACTIVE;
+			if (PPI.GZ1.r2 == 0.0 || PPI.GZ1.r2 >= PPI.range)
+			{
+				PPI.GZ1.r2 = PPI.range * 0.3;
+			}
+			if (PPI.GZ1.angle == 0.0)
+			{
+				PPI.GZ1.angle = 90.0;
+			}
+		} else if (PPI.GZ1.GZ == GRD_ACTIVE)
+		{
+			PPI.GZ1.GZ = GRD_ON;
+			SetTopIndicator(2,4,"GRD ZONE");
+		}
+	}
+	
+	rightpanel.buttons[16] = new Object();
+	CanvasObjectInit(rightpanel.buttons[16],OBJECT_BUTTON,"HIDE",117,495,221,531);
+	rightpanel.buttons[16].onMouseDown = function(x,y) 
+	{
+		PPI.GZ1.GZ = GRD_OFF;
+		SetTopIndicator(2,4,"");
+	}
+	
+	rightpanel.buttons[17] = new Object();
+	CanvasObjectInit(rightpanel.buttons[17],OBJECT_BUTTON,"EXPANSION",9,285,114,321);
+	rightpanel.buttons[17].onMouseDown = function(x,y) 
+	{
+		if (PPI.targetexpansion == 1.0) 
+		{
+			PPI.targetexpansion = 2.0;
+			SetTopIndicator(3,4,"TARGET EXP");
+		} else	
+		{
+			PPI.targetexpansion = 1.0;
+			SetTopIndicator(3,4,"");
+		}
+	}
+	
+	rightpanel.buttons[18] = new Object();
+	CanvasObjectInit(rightpanel.buttons[18],OBJECT_BUTTON,"INT REJ",117,285,221,321);
+	rightpanel.buttons[18].onMouseDown = function(x,y) 
+	{
+	}
+	rightpanel.buttons[18].active = false;
+	
+	rightpanel.buttons[19] = new Object();
+	CanvasObjectInit(rightpanel.buttons[19],OBJECT_BUTTON,"WAKES",9,325,114,362);
+	rightpanel.buttons[19].onMouseDown = function(x,y) 
+	{
+		if (PPI.wakes)
+		{
+			SetTopIndicator(0,3,"");
+			PPI.wakes = false;
+		} else
+		{
+			SetTopIndicator(0,3,"WAKES");
+			PPI.wakes = true;
+		}
+		for (var i = 0; i < targets.length; i++)
+		{
+			TargetClearWakes(targets[i]);
+		}
+	}
+	rightpanel.buttons[19].active = true;
+	
+	rightpanel.buttons[20] = new Object();
+	CanvasObjectInit(rightpanel.buttons[20],OBJECT_BUTTON,"CLEAR WAKES",117,325,221,362);
+	rightpanel.buttons[20].onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < targets.length; i++)
+		{
+			TargetClearWakes(targets[i]);
+		}
+	}
+	rightpanel.buttons[20].active = true;
+
+	rightpanel.buttons[21] = new Object();
+	CanvasObjectInit(rightpanel.buttons[21],OBJECT_BUTTON,"ACQUIRE TARGET",9,552,114,588);
+	rightpanel.buttons[21].onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < targets.length; i++)
+		{
+			var rect = GetPPIRect(PPI,targets[i]);
+			if (PPI.cursorx >= rect[0] && PPI.cursorx <= rect[2] && PPI.cursory >= rect[1] && PPI.cursory <= rect[3])
+			{
+				if (targets[i].radarstate == TARGET_FREE)
+				{
+					targets[i].radarstate = TARGET_ACQUIRE;
+					targets[i].acqureendtick = performance.now() + 10 * 1000;
+				} else if (targets[i].radarstate == TARGET_ACQUIRE)
+				{
+					targets[i].radarstate = TARGET_FREE;
+					targets[i].acqureendtick = -1;
+				}
+			}	
+		}
+	}
+	
+	rightpanel.buttons[22] = new Object();
+	CanvasObjectInit(rightpanel.buttons[22],OBJECT_BUTTON,"SELECT TARGET",117,552,221,588);
+	rightpanel.buttons[22].onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < targets.length; i++)
+		{
+			var rect = GetPPIRect(PPI,targets[i]);
+			if (PPI.cursorx >= rect[0] && PPI.cursorx <= rect[2] && PPI.cursory >= rect[1] && PPI.cursory <= rect[3])
+			{
+				if (targets[i].radarstate == TARGET_SAFE || targets[i].radarstate == TARGET_DANGEROUS)
+				{
+					targetselected = i;
+				}
+			}	
+		}
+	}
+	
+	rightpanel.buttons[23] = new Object();
+	CanvasObjectInit(rightpanel.buttons[23],OBJECT_BUTTON,"CANCEL TARGET",9,593,114,628);
+	rightpanel.buttons[23].onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < targets.length; i++)
+		{
+			var rect = GetPPIRect(PPI,targets[i]);
+			if (PPI.cursorx >= rect[0] && PPI.cursorx <= rect[2] && PPI.cursory >= rect[1] && PPI.cursory <= rect[3])
+			{
+				if (targets[i].radarstate == TARGET_ACQUIRE || targets[i].radarstate == TARGET_SAFE || targets[i].radarstate == TARGET_DANGEROUS)
+				{
+					if (targetselected == i) targetselected = -1;
+					targets[i].radarstate == TARGET_FREE;
+				}
+			}	
+		}
+	}
+	
+	rightpanel.buttons[24] = new Object();
+	CanvasObjectInit(rightpanel.buttons[24],OBJECT_BUTTON,"CANCEL ALL",117,593,221,628);
+	rightpanel.buttons[24].onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < targets.length; i++)
+		{
+			targets[i].radarstate = TARGET_FREE;
+		}
+		targetselected = -1;
+	}
+	
+	rightpanel.buttons[25] = new Object();
+	CanvasObjectInit(rightpanel.buttons[25],OBJECT_BUTTON,"AIS",9,649,114,685);
+	rightpanel.buttons[25].onMouseDown = function(x,y) 
+	{
+	}
+	rightpanel.buttons[25].active = false;
+
+	
+	
+								//===== right panel ============================
+	
+								// right panel onMouseDown event
+	rightpanel.onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < rightpanel.buttons.length; i++)
+		{
+			if (x >= rightpanel.buttons[i].left &&
+				x <= rightpanel.buttons[i].right &&
+				y >= rightpanel.buttons[i].top &&
+				y <= rightpanel.buttons[i].bottom)
+			{
+				if (!(rightpanel.buttons[i].onMouseDown == undefined) && rightpanel.buttons[i].active)
+				{
+					rightpanel.buttons[i].onMouseDown(x,y);
+					break;
+				}	
+			}
+		}
+	}
+								// right panel onMouseUp event
+	rightpanel.onMouseUp = function(x,y) 
+	{
+		for (var i = 0; i < rightpanel.buttons.length; i++)
+		{
+			if (!(rightpanel.buttons[i].onMouseUp == undefined) && rightpanel.buttons[i].active)
+			{
+				rightpanel.buttons[i].onMouseUp(x,y);
+				break;
+			}	
+		}
+	}
+								// right panel onMouseLeave event
+	rightpanel.onMouseLeave = function(x,y) 
+	{
+		for (var i = 0; i < rightpanel.buttons.length; i++)
+		{
+			if (!(rightpanel.buttons[i].onMouseLeave == undefined) && rightpanel.buttons[i].active)
+			{
+				rightpanel.buttons[i].onMouseLeave(x,y);
+				break;
+			}	
+		}
+	}
+								// mouse down handler for right panel (canvas)
+	function rcanvasmousedown(event)
+	{
+		var rcanvas = document.getElementById('canvasright');
+		var rect = rcanvas.getBoundingClientRect();
+		rightpanel.onMouseDown(event.clientX - rect.left,event.clientY - rect.top);
+		//rcanvas.setCapture(true);
+		rmousepressed = true;
+	}
+								// mouse up handler for right panel (canvas)
+	function rcanvasmouseup(event)
+	{
+		if (rmousepressed)
+		{
+			var rcanvas = document.getElementById('canvasright');
+			var rect = rcanvas.getBoundingClientRect();
+			rightpanel.onMouseUp(event.clientX - rect.left,event.clientY - rect.top);
+		}
+		rmousepressed = false;
+	}
+								// mouse leave handler for right panel (canvas)
+	function rcanvasmouseleave(event)
+	{
+		if (rmousepressed)
+		{
+			var rcanvas = document.getElementById('canvasright');
+			var rect = rcanvas.getBoundingClientRect();
+			rightpanel.onMouseLeave(event.clientX - rect.left,event.clientY - rect.top);
+		}
+		rmousepressed = false;
+	}
+	
+	
+								//===== left panel with controlled indicators 
+	lmousepressed = false;
+	
+	leftpanel.sliders = new Array();
+	
+	leftpanel.sliders[0] = new Object();
+	CanvasObjectInit(leftpanel.sliders[0],OBJECT_HORSLIDER,"BRILLIANCE",22,33,100,45);
+	leftpanel.sliders[0].value = PPI.brilliance;
+	leftpanel.sliders[0].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[0].value = (x - leftpanel.sliders[0].left) / (leftpanel.sliders[0].right - leftpanel.sliders[0].left);
+		PPI.brilliance = leftpanel.sliders[0].value;
+		PPI.color = "#00" + byteToHex(PPI.brilliance * 255) + "00";
+		PPI.inactivecolor = "#00" + byteToHex(PPI.brilliance * 127) + "00";
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[0],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[0].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[0].value = (x - leftpanel.sliders[0].left) / (leftpanel.sliders[0].right - leftpanel.sliders[0].left);
+			PPI.brilliance = leftpanel.sliders[0].value;
+			PPI.color = "#00" + byteToHex(PPI.brilliance * 255) + "00";
+			PPI.inactivecolor = "#00" + byteToHex(PPI.brilliance * 127) + "00";
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[0],ctx,"#00FF00",12);
+		}
+	}
+	
+	leftpanel.sliders[1] = new Object();
+	CanvasObjectInit(leftpanel.sliders[1],OBJECT_HORSLIDER,"GAIN",22,74,100,86);
+	leftpanel.sliders[1].value = PPI.gain;
+	leftpanel.sliders[1].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[1].value = (x - leftpanel.sliders[1].left) / (leftpanel.sliders[1].right - leftpanel.sliders[1].left);
+		PPI.gain = leftpanel.sliders[1].value;
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[1],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[1].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[1].value = (x - leftpanel.sliders[1].left) / (leftpanel.sliders[1].right - leftpanel.sliders[1].left);
+			PPI.gain = leftpanel.sliders[1].value;
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[1],ctx,"#00FF00",12);
+		}
+	}
+	
+	leftpanel.sliders[2] = new Object();
+	CanvasObjectInit(leftpanel.sliders[2],OBJECT_HORSLIDER,"TUNE",22,114,100,126);
+	leftpanel.sliders[2].value = PPI.tune;
+	leftpanel.sliders[2].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[2].value = (x - leftpanel.sliders[2].left) / (leftpanel.sliders[2].right - leftpanel.sliders[2].left);
+		PPI.tune = leftpanel.sliders[2].value;
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[2],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[2].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[2].value = (x - leftpanel.sliders[2].left) / (leftpanel.sliders[2].right - leftpanel.sliders[2].left);
+			PPI.tune = leftpanel.sliders[2].value;
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[2],ctx,"#00FF00",12);
+		}
+	}
+			
+	leftpanel.sliders[3] = new Object();
+	CanvasObjectInit(leftpanel.sliders[3],OBJECT_HORSLIDER,"SEA",22,155,100,167);
+	leftpanel.sliders[3].value = PPI.sea;
+	leftpanel.sliders[3].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[3].value = (x - leftpanel.sliders[3].left) / (leftpanel.sliders[3].right - leftpanel.sliders[3].left);
+		PPI.sea = leftpanel.sliders[3].value;
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[3],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[3].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[3].value = (x - leftpanel.sliders[3].left) / (leftpanel.sliders[3].right - leftpanel.sliders[3].left);
+			PPI.sea = leftpanel.sliders[3].value;
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[3],ctx,"#00FF00",12);
+		}
+	}
+	
+	leftpanel.sliders[4] = new Object();
+	CanvasObjectInit(leftpanel.sliders[4],OBJECT_HORSLIDER,"RAIN",22,187,100,199);
+	leftpanel.sliders[4].value = PPI.rain;
+	leftpanel.sliders[4].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[4].value = (x - leftpanel.sliders[4].left) / (leftpanel.sliders[4].right - leftpanel.sliders[4].left);
+		PPI.rain = leftpanel.sliders[4].value;
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[4],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[4].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[4].value = (x - leftpanel.sliders[4].left) / (leftpanel.sliders[4].right - leftpanel.sliders[4].left);
+			PPI.rain = leftpanel.sliders[4].value;
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[4],ctx,"#00FF00",12);
+		}
+	}
+	
+	leftpanel.sliders[5] = new Object();
+	CanvasObjectInit(leftpanel.sliders[5],OBJECT_HORSLIDER,"FTC",22,219,100,231);
+	leftpanel.sliders[5].value = PPI.FTC;
+	leftpanel.sliders[5].onMouseDown = function(x,y) 
+	{
+		leftpanel.sliders[5].value = (x - leftpanel.sliders[5].left) / (leftpanel.sliders[5].right - leftpanel.sliders[5].left);
+		PPI.FTC = leftpanel.sliders[5].value;
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+		DrawCanvasObject(leftpanel.sliders[5],ctx,"#00FF00",12);
+		lmousepressed = true;
+	}
+	leftpanel.sliders[5].onMouseMove = function(x,y) 
+	{
+		if (lmousepressed)
+		{
+			leftpanel.sliders[5].value = (x - leftpanel.sliders[5].left) / (leftpanel.sliders[5].right - leftpanel.sliders[5].left);
+			PPI.FTC = leftpanel.sliders[5].value;
+			var canvas = document.getElementById('canvasleft');
+			var ctx = canvas.getContext('2d');
+			DrawCanvasObject(leftpanel.sliders[5],ctx,"#00FF00",12);
+		}
+	}
+	
+
+
+
+								// left panel onMouseDown event
+	leftpanel.onMouseDown = function(x,y) 
+	{
+		for (var i = 0; i < leftpanel.sliders.length; i++)
+		{
+			if (x >= leftpanel.sliders[i].left &&
+				x <= leftpanel.sliders[i].right &&
+				y >= leftpanel.sliders[i].top &&
+				y <= leftpanel.sliders[i].bottom)
+			{
+				if (!(leftpanel.sliders[i].onMouseDown === undefined) && leftpanel.sliders[i].active)
+					leftpanel.sliders[i].onMouseDown(x,y);
+			}
+		}
+	}
+								// left panel onMouseMove event
+	leftpanel.onMouseMove = function(x,y) 
+	{
+		for (var i = 0; i < leftpanel.sliders.length; i++)
+		{
+			if (x >= leftpanel.sliders[i].left &&
+				x <= leftpanel.sliders[i].right &&
+				y >= leftpanel.sliders[i].top &&
+				y <= leftpanel.sliders[i].bottom)
+			{
+				if (!(leftpanel.sliders[i].onMouseMove === undefined) && leftpanel.sliders[i].active)
+					leftpanel.sliders[i].onMouseMove(x,y);
+			}
+		}
+	}
+								// left panel onMouseMove event
+	leftpanel.onMouseUp = function(x,y) 
+	{
+		for (var i = 0; i < leftpanel.sliders.length; i++)
+		{
+			if (!(leftpanel.sliders[i].onMouseUp === undefined) && leftpanel.sliders[i].active)
+				leftpanel.sliders[i].onMouseUp(x,y);
+		}
+	}
+									// mouse down handler for left panel (canvas)
+	function lcanvasmousedown(event)
+	{
+		var canvas = document.getElementById('canvasleft');
+		var rect = canvas.getBoundingClientRect();
+		leftpanel.onMouseDown(event.clientX - rect.left,event.clientY - rect.top);
+		//canvas.setCapture(true);
+	}
+								// mouse move handler for left panel (canvas)
+	function lcanvasmousemove(event)
+	{
+		var canvas = document.getElementById('canvasleft');
+		var rect = canvas.getBoundingClientRect();
+		leftpanel.onMouseMove(event.clientX - rect.left,event.clientY - rect.top);
+	}
+								// mouse move handler for left panel (canvas)
+	function lcanvasmouseup(event)
+	{
+		if (lmousepressed)
+		{
+			var canvas = document.getElementById('canvasleft');
+			var rect = canvas.getBoundingClientRect();
+			leftpanel.onMouseUp(event.clientX - rect.left,event.clientY - rect.top);
+		}
+		lmousepressed = false;
+	}
+								// mouse move handler for left panel (canvas)
+	function lcanvasmouseleave(event)
+	{
+		lcanvasmouseup(event);
+	}
+
+								// draw sliders on left panel
+	function DrawLeftSliders()
+	{	
+		var canvas = document.getElementById('canvasleft');
+		var ctx = canvas.getContext('2d');
+
+		for (var i = 0; i < leftpanel.sliders.length; i++)
+		{
+			if (leftpanel.sliders[i].active)
+			{
+				DrawCanvasObject(leftpanel.sliders[i],ctx,"#00FF00",12);
+			} else
+			{
+				DrawCanvasObject(leftpanel.sliders[i],ctx,PPI.inactivecolor,12);
+			}
+		}
+	}
+
+								//===== top panel with text indicators =========
+	toppanel.indicators = new Array();
+	
+	for (var i = 0; i < 4; i++)
+	{
+		for (var j = 0; j < 6; j++)
+		{
+			toppanel.indicators[i * 6 + j] = new Object();
+			var x0 = 10 + j * 100;
+			var y0 = 4 + i * 20;
+			var x1 = 10 + (j + 1) * 100 - 4;
+			var y1 = 4 + (i + 1) * 20 - 2;
+			CanvasObjectInit(toppanel.indicators[i * 6 + j],OBJECT_TEXT,"",x0,y0,x1,y1);
+		}	
+	}							
+								// draw indicators on right panel
+	function DrawTopIndicators()
+	{	
+		var canvas = document.getElementById('canvastop');
+		var ctx = canvas.getContext('2d');
+
+		for (var i = 0; i < toppanel.indicators.length; i++)
+		{
+			if (toppanel.indicators[i].active)
+			{
+				DrawCanvasObject(toppanel.indicators[i],ctx,PPI.color,12);
+			} else
+			{
+				DrawCanvasObject(toppanel.indicators[i],ctx,PPI.inactivecolor,12);
+			}
+		}
+	}
+	
+	function SetTopIndicator(i,j,text)
+	{
+		toppanel.indicators[i * 6 + j].name = text;
+		DrawTopIndicators();
+	}
+
+
+								//===== bottom panel with text indicators 4x6 ==
+	bottompanel.indicators = new Array();
+	
+	for (var i = 0; i < 6; i++)
+	{
+		for (var j = 0; j < 4; j++)
+		{
+			bottompanel.indicators[i * 4 + j] = new Object();
+			var x0 = 10 + j * 150;
+			var y0 = 4 + i * 25;
+			var x1 = 10 + (j + 1) * 150 - 4;
+			var y1 = 4 + (i + 1) * 25 - 2;
+			CanvasObjectInit(bottompanel.indicators[i * 4 + j],OBJECT_TEXT,"",x0,y0,x1,y1);
+		}	
+	}							
+								// draw indicators on right panel
+	function DrawBottomIndicators()
+	{	
+		var canvas = document.getElementById('canvasbottom');
+		var ctx = canvas.getContext('2d');
+
+		for (var i = 0; i < bottompanel.indicators.length; i++)
+		{
+			if (bottompanel.indicators[i].active)
+			{
+				DrawCanvasObject(bottompanel.indicators[i],ctx,PPI.color,12);
+			} else
+			{
+				DrawCanvasObject(bottompanel.indicators[i],ctx,PPI.inactivecolor,12);
+			}
+		}
+	}
+	
+	function SetBottomIndicator(i,j,text)
+	{
+		bottompanel.indicators[i * 4 + j].name = text;
+		DrawBottomIndicators();
+	}
+	
+								//===== main PPI canvas ========================
+	var mousepressed = false;
+	var lastMouseX = null;
+	var lastMouseY = null;
+
+	function DrawCursorBearingRange()
+	{
+		var pos = PPIScreen2Meters(PPI,PPI.cursorx,PPI.cursory);
+		var br = GetBearingAndRange(ship.x,ship.y,pos[0],pos[1],BEARING_RELATIVE,ship);
+		if (br[1] * 1852.0 < 10.0)
+		{
+			br[0] = 0.0;
+			br[1] = 0.0;
+		}
+		
+		SetBottomIndicator(0,0,"CURSOR BRG " + br[0].toFixed(1) + "°R");
+		SetBottomIndicator(1,0,"CURSOR RNG " + br[1].toFixed(1) + "nm");
+	}
+
+	function DrawEV1BearingRange()
+	{
+		if (PPI.EV1.VRM < 10.0)
+		{
+			PPI.EV1.VRM = 0.0;
+		}
+		
+		SetBottomIndicator(0,1,"EBL " + PPI.EV1.EBL.toFixed(1) + "°R");
+		SetBottomIndicator(1,1,"VRM " + (PPI.EV1.VRM / 1852.0).toFixed(1) + "nm");
+	}
+
+	function StopEV1BearingRange()
+	{
+		SetBottomIndicator(0,1,"");
+		SetBottomIndicator(1,1,"");
+	}
+		
+	function canvasPPImousedown(event)
+	{
+		mousepressed = true;
+		
+		var canvas = document.getElementById('canvasPPI');
+		var rect = canvas.getBoundingClientRect();
+		var canvasx = event.clientX - rect.left;
+		var canvasy = event.clientY - rect.top;
+		
+		PPI.cursorx = canvasx;
+		PPI.cursory = canvasy;
+								// what to drag?
+		if (PPI.EV1.EV > EBLVRM_OFF)
+		{
+			var pos = GetBearingRangeMeters(PPI.EV1.EBL,PPI.EV1.VRM,PPI.EV1.EVbearingmode,
+				ship.x + PPI.EV1.EVx,ship.y + PPI.EV1.EVy,ship);
+		
+			var screenpos = PPIMeters2Screen(PPI,pos[0],pos[1]);
+			
+			var dx = screenpos[0] - canvasx;
+			var dy = screenpos[1] - canvasy;
+			var dist = Math.sqrt(dx * dx + dy * dy);
+			
+			if (dist < 5)
+			{
+				PPI.EV1.EV = EBLVRM_ACTIVE;
+				dragging = DRAGGING_EV1;
+			}
+		} 
+		
+		if (PPI.GZ1.GZ > GRD_OFF)
+		{
+			var pos = GetBearingRangeMeters(PPI.GZ1.angle * 0.5,PPI.GZ1.r2,BEARING_RELATIVE,
+				ship.x,ship.y,ship);
+		
+			var screenpos = PPIMeters2Screen(PPI,pos[0],pos[1]);
+			
+			var dx = screenpos[0] - canvasx;
+			var dy = screenpos[1] - canvasy;
+			var dist = Math.sqrt(dx * dx + dy * dy);
+			
+			if (dist < 5)
+			{
+				PPI.GZ1.GZ = GRD_ACTIVE;
+				dragging = DRAGGING_GZ1;
+			}
+		} 
+								
+
+		lastMouseX = canvasx;
+		lastMouseY = canvasy;
+		
+		//canvas.setCapture(true);
+	}
+		
+	function canvasPPImousemove(event)
+	{
+		if (!mousepressed) {
+		  return;
+		}
+		
+		var canvas = document.getElementById('canvasPPI');
+		var rect = canvas.getBoundingClientRect();
+		var canvasx = event.clientX - rect.left;
+		var canvasy = event.clientY - rect.top;
+		
+		PPI.cursorx = canvasx;
+		PPI.cursory = canvasy;
+		
+		if (dragging == DRAGGING_EV1)
+		{
+			var pos = PPIScreen2Meters(PPI,canvasx,canvasy);
+		
+			var br = GetBearingAndRange(ship.x + PPI.EV1.EVx,ship.y + PPI.EV1.EVy,pos[0],pos[1],PPI.EV1.EVbearingmode,ship);
+			
+			if (br[1] > PPI.range / 1852.0 * 0.9)
+				br[1] = PPI.range / 1852.0 * 0.9;
+			
+			PPI.EV1.EV = EBLVRM_ACTIVE;
+			PPI.EV1.VRM = br[1] * 1852.0;
+			PPI.EV1.EBL = br[0];
+		} 
+		
+		if (dragging == DRAGGING_GZ1)
+		{
+			var pos = PPIScreen2Meters(PPI,canvasx,canvasy);
+		
+			var br = GetBearingAndRange(ship.x,ship.y,pos[0],pos[1],BEARING_RELATIVE,ship);
+			
+			if (br[1] > PPI.range / 1852.0 * 0.9)
+				br[1] = PPI.range / 1852.0 * 0.9;
+			if (br[0] < 0.0)
+				br[0] = 0.0;
+			if (br[0] > 180.0)
+				br[0] = 180.0;
+			
+			PPI.GZ1.GZ = GRD_ACTIVE;
+			PPI.GZ1.r2 = br[1] * 1852.0;
+			PPI.GZ1.angle = br[0] * 2.0;
+		} 
+		
+		lastMouseX = canvasx;
+		lastMouseY = canvasy;
+	}
+
+	function canvasPPImouseleave(event)
+	{
+		mousepressed = false;
+		dragging = DRAGGING_NONE;
+	}
+
+	function mouseup(event)
+	{
+		mousepressed = false;
+		dragging = DRAGGING_NONE;
+	}
+	
+
+	
+	
+								// r0 for polar grid to represent waves
+//!!! temporarily	var r0 = ship.antennaheight / Math.tan(PPI.beamheight * 0.5 * Math.PI / 180.0);
+	var r0 = 50.0;
+								// max radius for polar grid to represent waves;
+								// with these r0(10),r1(4000), grid 32x64 and
+								// power 2 wave lengths should vary from 4 to 
+								// 64 metres
+	var r1 = 4000.0;
+								// ms
+	var t = performance.now();
+
+	window.requestAnimFrame = (function(){
+		  return  window.requestAnimationFrame       || 
+				  window.webkitRequestAnimationFrame || 
+				  window.mozRequestAnimationFrame    || 
+				  window.oRequestAnimationFrame      || 
+				  window.msRequestAnimationFrame     || 
+				  function( callback ){
+					window.setTimeout(callback,1000 / framespersec);
+				  };
+		})();
+
+								// draw buttons on right panel
+	function DrawButtons()
+	{	
+		var canvas = document.getElementById('canvasright');
+		var ctx = canvas.getContext('2d');
+
+		for (var i = 0; i < rightpanel.buttons.length; i++)
+		{
+			if (rightpanel.buttons[i].active)
+			{
+				DrawCanvasObject(rightpanel.buttons[i],ctx,"#00FF00",10);
+			} else
+			{
+				DrawCanvasObject(rightpanel.buttons[i],ctx,"#008000",10);
+			}
+		}
+	}
+	
+	function LoadRightBitmapToCanvas(canvasname, filename)
+	{
+		var canvas = document.getElementById(canvasname);
+		var ctx = canvas.getContext('2d');
+		var img = new Image();  
+		img.onload = function() 
+		{ 
+			ctx.drawImage(img,0,0); DrawButtons(); 
+		}  
+		img.src = filename; 
+	}
+	
+	function LoadTopBitmapToCanvas(canvasname, filename)
+	{
+		var canvas = document.getElementById(canvasname);
+		var ctx = canvas.getContext('2d');
+		var img = new Image();  
+		img.onload = function() 
+		{ 
+			ctx.drawImage(img,0,0); 
+			SetTopIndicator(0,5,"RANGE " + ranges[rangeindex] + "nm");
+			SetTopIndicator(1,5,"RINGS " + ranges[rangeindex] / numrings[rangeindex] + "nm");
+			SetTopIndicator(2,5,"HEAD UP");
+			SetTopIndicator(3,5,"MOTION REL");
+		}  
+		img.src = filename; 
+	}
+	
+	function LoadLeftBitmapToCanvas(canvasname, filename)
+	{
+		var canvas = document.getElementById(canvasname);
+		var ctx = canvas.getContext('2d');
+		var img = new Image();  
+		img.onload = function() 
+		{ 
+			ctx.drawImage(img,0,0); 
+			DrawLeftSliders();
+		}  
+		img.src = filename; 
+	}
+	
+	function LoadBottomBitmapToCanvas(canvasname, filename)
+	{
+		var canvas = document.getElementById(canvasname);
+		var ctx = canvas.getContext('2d');
+		var img = new Image();  
+		img.onload = function() 
+		{ 
+			ctx.drawImage(img,0,0); 
+		}  
+		img.src = filename; 
+	}
+
+	
+	var init = function() {
+	
+	document.onmouseup = mouseup;
+								// canvases
+	LoadRightBitmapToCanvas('canvasright','./bitmaps/radarright.png');
+	LoadTopBitmapToCanvas('canvastop','./bitmaps/radartop.png');
+	LoadLeftBitmapToCanvas('canvasleft','./bitmaps/radarleft_1.png');
+	LoadBottomBitmapToCanvas('canvasbottom','./bitmaps/radarbottom.png');
+	
+	var rcanvas = document.getElementById('canvasright');
+	rcanvas.onmousedown = rcanvasmousedown;
+	rcanvas.onmouseup = rcanvasmouseup;
+	rcanvas.onmouseleave = rcanvasmouseleave;
+	
+	var lcanvas = document.getElementById('canvasleft');
+	lcanvas.onmousedown = lcanvasmousedown;
+	lcanvas.onmousemove = lcanvasmousemove;
+	lcanvas.onmouseup = lcanvasmouseup;
+	lcanvas.onmouseleave = lcanvasmouseleave;
+		
+	gl = initGL(mcanvas);
+	
+	if (gl) 
+	{
+						// set canvas events
+		mcanvas.onmousedown = canvasPPImousedown;
+		mcanvas.onmousemove = canvasPPImousemove;
+		mcanvas.onmouseleave = canvasPPImouseleave;
+		mcanvas.onmouseup = canvasPPImouseleave;
+
+		gl.enable(gl.DEPTH_TEST);
+		  
+		var fragmentShader, vertexShader;
+		fragmentShader = getShader(gl, "shader-fs");
+		vertexShader = getShader(gl, "shader-vs");
+		
+		shaderProgram = gl.createProgram();
+		gl.attachShader(shaderProgram, vertexShader);
+		gl.attachShader(shaderProgram, fragmentShader);
+		gl.linkProgram(shaderProgram);
+
+		if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+			alert("Unable to initialise shaders");
+		}
+		
+		shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+		shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+		shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+		shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+		
+		shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+		shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+		shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+
+		shaderProgram.uSamplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+		shaderProgram.flagLocation = gl.getUniformLocation(shaderProgram, "uFlag");
+		shaderProgram.flag1Location = gl.getUniformLocation(shaderProgram, "uFlag1");
+		
+		shaderProgram.directionalColor = gl.getUniformLocation(shaderProgram, "uDirectionalColor");
+		shaderProgram.lightPosition = gl.getUniformLocation(shaderProgram, "uLightPosition");
+		shaderProgram.angle0 = gl.getUniformLocation(shaderProgram, "uAngle0");
+		shaderProgram.angle1 = gl.getUniformLocation(shaderProgram, "uAngle1");
+		
+		shaderProgram.antennaHeight = gl.getUniformLocation(shaderProgram, "uAntennaHeight");
+		shaderProgram.beamHeight2 = gl.getUniformLocation(shaderProgram, "uBeamHeight2");
+		shaderProgram.fRange = gl.getUniformLocation(shaderProgram, "uRange");
+		shaderProgram.fBrilliance = gl.getUniformLocation(shaderProgram, "uBrilliance");
+		shaderProgram.fGain = gl.getUniformLocation(shaderProgram, "uGain");
+		shaderProgram.fTune = gl.getUniformLocation(shaderProgram, "uTune");
+		shaderProgram.fSea = gl.getUniformLocation(shaderProgram, "uSea");
+		shaderProgram.fRain = gl.getUniformLocation(shaderProgram, "uRain");
+		shaderProgram.fFTC = gl.getUniformLocation(shaderProgram, "uFTC");
+		shaderProgram.fWaveHeight = gl.getUniformLocation(shaderProgram, "uWaveHeight");
+		shaderProgram.fWindDirection = gl.getUniformLocation(shaderProgram, "uWindDirection");
+		shaderProgram.fRotAngle = gl.getUniformLocation(shaderProgram, "uRotAngle");
+		
+		//!!!gl.uniform1i(shaderProgram.uSamplerUniform, 0);
+		//gl.activeTexture(gl.TEXTURE0);
+		
+		// 20-11-28
+		var terrainname = chartname;
+		var latlon = ParseTerrainFileName(terrainname);
+		lat = latlon[0];
+		lon = latlon[1];
+		FlatCoordInit(flatcoord,lat + 0.5,lon + 0.5);
+		
+		LoadVBO2("./areas/" + terrainname + "c.vbo2",terrainvboc,gl);
+		LoadVBO2("./areas/" + terrainname + "m.vbo2",terrainvbom,gl);
+		
+		screentexture = gl.createTexture();
+		InitOffscreenTexture(gl,screentexture);
+		
+		offcanvas = document.createElement('canvas');
+        offcanvas.width = 512;
+        offcanvas.height = 512;
+
+		offcontext = offcanvas.getContext('2d');
+
+		CreatePolarVBO(gl,r0,r1,32,64,0,0,2,wavesvbo);
+
+								//===== targets ================================
+		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		
+		
+							  //===== ship,name,L,B,T,D,antennaheight,maxspeed,speed,course,x,y,state =====
+		ShipInit(ship,"",100.0,15.0,5.0,5.0,15.0,20.0,20.0,178.0,35928.0,-30500.0,SHIP_AFLOAT);
+
+		animate();
+	  }
+	}
+
+	
+	
+	function animate() {
+		requestAnimFrame(animate,framespersec);
+		drawGL();
+	}
+
+	function DrawTerrain(vbo)
+	{
+		if (vbo != undefined && vbo.structures != undefined)
+		{
+			for (var k = 0; k < vbo.numStructures; k++)
+			{
+				if (vbo.structures[k].numcolorpatches > 0)
+				{
+					if (vbo.structures[k].colorpatch.numtriangles > 0)
+					{
+						if (vbo.structures[k].colorpatch.noColors)
+						{
+							gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+							gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+							gl.disableVertexAttribArray(shaderProgram.vertexColorAttribute);
+							gl.disableVertexAttribArray(shaderProgram.textureCoordAttribute);
+							
+							gl.bindBuffer(gl.ARRAY_BUFFER,vbo.structures[k].colorpatch.vertexBuffer);
+							gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,3,gl.FLOAT,false,24,0);
+							gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,3,gl.FLOAT,false,24,12);
+
+							gl.uniformMatrix4fv(shaderProgram.pMatrixUniform,false,pMatrix);
+							gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform,false,mvMatrix);
+							gl.uniformMatrix3fv(shaderProgram.nMatrixUniform,false,nMatrix);
+
+							gl.drawArrays(gl.TRIANGLES,0,vbo.structures[k].colorpatch.numtriangles * 3);
+							
+							gl.disableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+							gl.disableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+						} else
+						{
+							gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+							gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+							gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+							gl.disableVertexAttribArray(shaderProgram.textureCoordAttribute);
+							
+							gl.bindBuffer(gl.ARRAY_BUFFER,vbo.structures[k].colorpatch.vertexBuffer);
+							gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,3,gl.FLOAT,false,40,0);
+							gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,3,gl.FLOAT,false,40,12);
+							gl.vertexAttribPointer(shaderProgram.vertexColorAttribute,4,gl.FLOAT,false,40,24);
+
+							gl.uniformMatrix4fv(shaderProgram.pMatrixUniform,false,pMatrix);
+							gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform,false,mvMatrix);
+							gl.uniformMatrix3fv(shaderProgram.nMatrixUniform,false,nMatrix);
+
+							gl.drawArrays(gl.TRIANGLES,0,vbo.structures[k].colorpatch.numtriangles * 3);
+							
+							gl.disableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+							gl.disableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+							gl.disableVertexAttribArray(shaderProgram.vertexColorAttribute);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	function DrawWater(bindtextures)
+	{
+		if (wavesvbo != undefined)
+		{
+			if (bindtextures)
+				gl.bindTexture(gl.TEXTURE_2D,wavestexture);
+			
+			gl.uniformMatrix4fv(shaderProgram.pMatrixUniform,false,pMatrix);
+			gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform,false,mvMatrix);
+			gl.uniformMatrix3fv(shaderProgram.nMatrixUniform,false,nMatrix);
+			
+			DrawPolarVBO(shaderProgram,gl,wavesvbo,true,false);
+		}
+	}
+	
+	function DrawTarget(target,vertexBuffer)
+	{
+		gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+		gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+		gl.disableVertexAttribArray(shaderProgram.textureCoordAttribute);
+		gl.disableVertexAttribArray(shaderProgram.vertexColorAttribute);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,3,gl.FLOAT,false,24,0);
+		gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,3,gl.FLOAT,false,24,12);
+		
+		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform,false,pMatrix);
+		gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform,false,mvMatrix);
+		gl.uniformMatrix3fv(shaderProgram.nMatrixUniform,false,nMatrix);
+
+		gl.drawArrays(gl.TRIANGLES,0,target.vertices.length / 6);
+		
+		gl.disableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+		gl.disableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+	}
+	
+	function drawGL() 
+	{
+		if (chartchanged)
+		{
+//!!!!			location.reload(); 
+			chartchanged = false;
+		}
+								// count frames
+		framecount++;
+
+		gl.useProgram(shaderProgram);
+								// increment time
+		var tnew = performance.now();
+		var dtsec = tnew - t;
+		
+		var motiondx = 0.0;
+        var motiondy = 0.0;
+									// treat true motion
+        if (PPI.motion == MOTION_TRUE)
+        {
+          motiondx = PPI.motionstartx - ship.x;
+          motiondy = PPI.motionstarty - ship.y;
+        }
+									// treat true motion
+        if (PPI.motion == MOTION_TRUE && framecount % 20 == 0)
+        {
+          var r = Math.sqrt(motiondx * motiondx + motiondy * motiondy);
+          if (r < PPI.range * 0.66666667)
+          {
+          } else
+          {
+            PPI.motionstartx = ship.x;
+            PPI.motionstarty = ship.y;
+          }
+        }
+								// for very fast computers, skip update
+								// if time elapsed is less than 1 msec
+		if (dtsec > 0)
+		{
+			dtsec *= 0.001;
+			t = tnew;
+								// move ship
+			var speedms = ship.speed * 1852.0 / 3600.0;
+			var rot = Math.PI * (90.0 + 360.0 - ship.course) / 180.0;
+			var dx = speedms * Math.cos(rot) * dtsec;
+			var dy = speedms * Math.sin(rot) * dtsec;
+			ship.x += dx;
+			ship.y += dy;
+		}
+
+		if (framecount % 5 == 0)
+		{
+								// update PPI transform
+			PPIUpdateTransform(PPI,ship);
+		}
+		
+		if (framecount % 25 == 0)
+		{
+								// report ship
+			var latlon = XY2LatLon(flatcoord,ship.x,ship.y);					
+			SetTopIndicator(0,0,LatString(latlon[0]));					
+			SetTopIndicator(1,0,LonString(latlon[1]));	
+			SetTopIndicator(2,0,"HDG " + ship.course.toFixed(1) + "°T");					
+			SetTopIndicator(3,0,"SPEED " + ship.speed.toFixed(1) + "kn");		
+		}
+
+								// model view
+		angle += dangle;
+		if (angle >= 360.0)
+			angle = 0.0;
+								// temp
+		var anglerad = Math.PI * angle / 180.0;
+								// set light parameters
+								// reflection color is yellow
+		gl.uniform3f(shaderProgram.directionalColor,1.0,1.0,0.0);
+		gl.uniform3f(shaderProgram.lightPosition,ship.x,ship.y,ship.antennaheight);
+		gl.uniform1f(shaderProgram.angle0,angle);
+		gl.uniform1f(shaderProgram.angle1,angle + dangle);
+		gl.uniform1f(shaderProgram.antennaHeight,ship.antennaheight);
+		gl.uniform1f(shaderProgram.beamHeight2,PPI.beamheight * 0.5 * Math.PI / 180.0);
+		gl.uniform1f(shaderProgram.fRange,PPI.range);
+		gl.uniform1f(shaderProgram.fBrilliance,PPI.brilliance);
+		gl.uniform1f(shaderProgram.fGain,PPI.gain);
+		gl.uniform1f(shaderProgram.fTune,PPI.tune);
+		gl.uniform1f(shaderProgram.fSea,PPI.sea);
+		gl.uniform1f(shaderProgram.fRain,PPI.rain);
+		gl.uniform1f(shaderProgram.fFTC,PPI.FTC);
+		gl.uniform1f(shaderProgram.fWaveHeight,waveheight);
+								//!!!
+								// this wind direction is measured in x-y system and
+								// is true only in North-up heading mode; we must
+								// adjust it in Head-up and Course-up modes
+		var wdirection = winddirection;				
+		if (PPI.headingmode == HMODE_HUP)
+		{
+		} else if (PPI.headingmode == HMODE_CUP) 
+		{
+		}
+		gl.uniform1f(shaderProgram.fWindDirection,wdirection);
+
+		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+								// ortho projection - view from above
+		mat4.ortho(pMatrix,-PPI.range,PPI.range,-PPI.range,PPI.range,1.0,PPI.range + 100.0);
+
+		gl.enable(gl.DEPTH_TEST);
+		
+								//===== draw terrain ===========================
+		gl.uniform1i(shaderProgram.flagLocation,0);	
+		gl.uniform1i(shaderProgram.flag1Location,0);	
+
+		var rotangle = 0.0;
+		if (PPI.motion == MOTION_RELATIVE)
+		{
+			if (PPI.headingmode == HMODE_HUP) rotangle = ship.course;
+			else if (PPI.headingmode == HMODE_CUP) rotangle = ship.courseup;
+		} else
+		{
+			if (PPI.headingmode == HMODE_HUP) rotangle = ship.course;
+			else if (PPI.headingmode == HMODE_CUP) rotangle = ship.courseup;
+		}
+		
+		gl.uniform1f(shaderProgram.fRotAngle,rotangle);
+
+		mat4.identity(mvMatrix);		
+		mat4.rotateZ(mvMatrix,mvMatrix,Math.PI * rotangle / 180.0);
+		mat4.translate(mvMatrix,mvMatrix,[-ship.x - motiondx,-ship.y - motiondy,-PPI.range * 0.9]);
+		mat3.normalFromMat4(nMatrix,mvMatrix);
+		
+		DrawTerrain(terrainvboc);
+		DrawTerrain(terrainvbom);
+
+								//===== targets ================================
+		gl.uniform1i(shaderProgram.flagLocation,0);	
+		gl.uniform1i(shaderProgram.flag1Location,3);	
+		for (var i = 0; i < targets.length; i++)
+		{
+								// apply transform to ship coordinates
+			var vertexBuffer = gl.createBuffer();
+			TargetTransform(gl,targets[i],(rangeindex > 0) ? PPI.targetexpansion : 1.0,vertexBuffer);
+			DrawTarget(targets[i],vertexBuffer);
+								// wakes
+			if (PPI.wakes)
+			{
+				TargetAddWake(targets[i],
+					PPI.wakelengthsec,
+					PPI.wakeaddinterval,
+					tnew * 0.001,
+					targets[i].course,
+					targets[i].x,
+					targets[i].y,
+					targets[i].z);
+
+				var numwakes = targets[i].wakes.length / 5;
+				for (var j = 0; j < numwakes; j++)
+				{
+					var j5 = j * 5;
+					var vertexBuffer = gl.createBuffer();
+					TargetWakeTransform(gl,targets[i],
+						targets[i].wakes[j5 + 1],
+						targets[i].wakes[j5 + 2],
+						targets[i].wakes[j5 + 3],
+						targets[i].wakes[j5 + 4],
+						0.05,vertexBuffer);
+					DrawTarget(targets[i],vertexBuffer);
+				}
+			}
+		}
+
+		gl.uniform3f(shaderProgram.lightPosition,0.0,0.0,ship.antennaheight);
+		gl.uniform1i(shaderProgram.flagLocation,2);	
+		gl.uniform1i(shaderProgram.flag1Location,2);	
+				
+								//===== draw water around the ship =============
+		mat4.identity(mvMatrix);		
+		mat4.rotateZ(mvMatrix,mvMatrix,Math.PI * rotangle / 180.0);		
+		mat4.translate(mvMatrix,mvMatrix,[-motiondx,-motiondy,-PPI.range * 0.9 - 1.0]);
+		mat3.normalFromMat4(nMatrix,mvMatrix);
+
+		DrawWater(false);
+								//===== draw offscreen bitmap on invisible canvas =
+								// not very often - this is slow
+		if (framecount % 10 == 0)
+		{	
+			offcontext.fillStyle = 'rgba(0,0,0,1.0)';
+			offcontext.fillRect(0,0,offcanvas.width,offcanvas.height);
+								// draw round scales
+			PPIDrawScale(PPI,offcontext,ship);
+								// draw rings
+			if (PPI.rangerings)
+				PPIDrawRings(PPI,offcontext,ship,numrings[rangeindex]);
+								// draw heading line
+			if (PPI.headingline)
+				PPIDrawHeadingLine(PPI,offcontext,ship);
+								// cursor
+			PPIDrawCursor(PPI,offcontext);
+			DrawCursorBearingRange();
+								// EBL/VRM
+			if (PPI.EV1.EV > EBLVRM_OFF)
+			{
+				PPIDrawEBLVRM(PPI,PPI.EV1,offcontext,ship);
+				DrawEV1BearingRange();
+			}
+								// guard zone 1
+			if (PPI.GZ1.GZ > GRD_OFF)
+			{
+				PPIDrawGuardZone(PPI,PPI.GZ1,offcontext,ship);
+			}
+								// draw ARPA targets
+			for (var i = 0; i < targets.length; i++)
+			{
+				var cpa = [];
+								// update status
+				if (targets[i].radarstate == TARGET_ACQUIRE)
+				{
+					if (targets[i].acqureendtick > 0 && tnew > targets[i].acqureendtick)
+					{
+						targets[i].radarstate = TARGET_SAFE;
+						targets[i].acqureendtick = -1;
+					}	
+				}
+				if (targets[i].radarstate == TARGET_SAFE || targets[i].radarstate == TARGET_DANGEROUS)
+				{
+					cpa = GetCPA(ship.x,ship.y,ship.course,ship.speed,targets[i].x,targets[i].y,
+						targets[i].course,targets[i].speed,TARGETsafedistance);
+					if (cpa[2] == true)
+					{
+						targets[i].radarstate = TARGET_DANGEROUS;
+					} else
+					{
+						targets[i].radarstate = TARGET_SAFE;
+					}
+				}
+			
+				if (targets[i].radarstate == TARGET_ACQUIRE)
+				{
+					PPIDrawBeingAcquired(PPI,offcontext,targets[i]);
+				} else if (targets[i].radarstate == TARGET_SAFE)
+				{
+					PPIDrawSafe(PPI,offcontext,targets[i]);
+					PPIDrawTargetVector(PPI,offcontext,ship,targets[i]);
+					PPIDrawTargetNumber(PPI,offcontext,targets[i],i);
+				} else if (targets[i].radarstate == TARGET_DANGEROUS)
+				{
+					PPIDrawDangerous(PPI,offcontext,ship,targets[i]);
+					PPIDrawTargetVector(PPI,offcontext,ship,targets[i]);
+					PPIDrawTargetNumber(PPI,offcontext,targets[i],i);
+				}
+			}
+								// output parameters of selected target
+			if (targetselected >= 0 && targetselected < targets.length)
+			{
+				SetBottomIndicator(0,2,"TARGET " + String(targetselected));
+				
+				var br = GetBearingAndRange(ship.x,ship.y,targets[targetselected].x,
+					targets[targetselected].y,BEARING_TRUE,ship);
+				SetBottomIndicator(1,2,"BEARING " + br[0].toFixed(1) + "°T");
+				SetBottomIndicator(1,3,"RANGE   " + br[1].toFixed(1) + "nm");
+
+				SetBottomIndicator(2,2,"COURSE " + targets[targetselected].course.toFixed(1) + "°");
+				SetBottomIndicator(2,3,"SPEED  " + targets[targetselected].speed.toFixed(1) + "kn");
+				
+				var cpa = GetCPA(ship.x,ship.y,ship.course,ship.speed,targets[targetselected].x,targets[targetselected].y,
+						targets[targetselected].course,targets[targetselected].speed,TARGETsafedistance);
+				SetBottomIndicator(3,2,"CPA    " + (cpa[0] / MILE_LENGTH).toFixed(2) + "nm");
+				if (cpa[1] > 0.0)
+				{
+					SetBottomIndicator(3,3,"TCPA   " + (cpa[1] / 60.0).toFixed(1) + "min");
+				} else
+				{
+					SetBottomIndicator(3,3,"PASSED");
+				}
+			} else
+			{
+				SetBottomIndicator(0,2,"");
+				SetBottomIndicator(1,2,"");
+				SetBottomIndicator(1,3,"");
+				SetBottomIndicator(2,2,"");
+				SetBottomIndicator(2,3,"");
+				SetBottomIndicator(3,2,"");
+				SetBottomIndicator(3,3,"");
+			}
+		}
+								// draw offscreen bitmap
+		gl.uniform1i(shaderProgram.flagLocation,1);	
+		gl.uniform1i(shaderProgram.flag1Location,1);	
+		
+		mat4.identity(mvMatrix);			
+		mat4.translate(mvMatrix,mvMatrix,[0,0,-PPI.range * 0.9]); 
+		mat3.normalFromMat4(nMatrix,mvMatrix);
+
+		var squareVertexPositionBuffer2 = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER,squareVertexPositionBuffer2);
+		
+		vertices = [
+			-PPI.range,-PPI.range,0.0,0.0,0.0,
+			+PPI.range,-PPI.range,0.0,1.0,0.0,
+			+PPI.range,+PPI.range,0.0,1.0,1.0,
+			+PPI.range,+PPI.range,0.0,1.0,1.0,
+			-PPI.range,+PPI.range,0.0,0.0,1.0,
+			-PPI.range,-PPI.range,0.0,0.0,0.0
+		];
+								// prepare texture from offscreen canvas
+		var image = offcontext.getImageData(0,0,offcanvas.width,offcanvas.height);
+		UpdateTexture(gl,screentexture,image);
+		gl.bindTexture(gl.TEXTURE_2D,screentexture);
+
+		gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+		
+		gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+		gl.disableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+		gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+		
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,3,gl.FLOAT,false,20,0);
+		gl.vertexAttribPointer(shaderProgram.textureCoordAttribute,2,gl.FLOAT,false,20,12);
+		
+		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform,false,pMatrix);
+		gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform,false,mvMatrix);
+		gl.uniformMatrix3fv(shaderProgram.nMatrixUniform,false,nMatrix);
+
+		gl.disable(gl.DEPTH_TEST);
+		gl.drawArrays(gl.TRIANGLES,0,6);
+	}
+
+
+	return init;
+}
+
+)();
+
+loadScene();
+</script>
+
+<?php include '../php/radarcount.php'; ?>
+
+</body>
+</html>
