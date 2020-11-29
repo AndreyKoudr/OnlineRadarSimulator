@@ -37,4 +37,11 @@ The solution (working fine only in Firefox yet)
   <B>Opera</B>  
   
     >launcher.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
+    
+Tests
+-----
+- set <I>privacy.file_unique_origin</I> to false in Firefox as described above
+- run <I>radar.html</I> with Firefox
+
+
 
