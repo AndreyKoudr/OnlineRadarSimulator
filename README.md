@@ -41,7 +41,7 @@ The solution (working fine only in Firefox yet)
 Tests
 -----
 - set <I>privacy.file_unique_origin</I> to false in Firefox as described above
-- run <I>radar.html</I> with Firefox
+- run <I>radar.html</I> with Firefox. It must display terrain like that shown in <I>This is how it must look (README).png</I>
 
 
 
