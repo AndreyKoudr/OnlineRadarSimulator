@@ -25,13 +25,16 @@ Format of the files can be understood from FillGLBuffers2() in LoadVBO.js.
 The solution (only working in Firefox yet)
 ------------------------------------------
   <B>Firefox</B>
-	- go to <I>about:config</I>
-    - find <I>privacy.file_unique_origin</I>
-    - change it to <I>false</I>
+  
+  - go to <I>about:config</I>
+  - find <I>privacy.file_unique_origin</I>
+  - change it to <I>false</I>
 	
   <B>Chrome</B>
-    - >chrome.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
+  
+    >chrome.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
 
   <B>Opera</B>  
-    - >launcher.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
+  
+    >launcher.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
 
