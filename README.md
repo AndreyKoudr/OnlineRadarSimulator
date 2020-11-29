@@ -43,5 +43,9 @@ Tests
 - set <I>privacy.file_unique_origin</I> to <I>false</I> in Firefox as described above
 - run <I>radar.html</I> with Firefox. It must display terrain like that shown in <I>This is how it must look (README).png</I>
 
+Licencing
+---------
+The files Barrett.js, BigInt.js, webgl-utils.js are third-party ones, they contain copyrights of their authors. Other files contain MI Simulators copyright - this is me.
+
 
 
