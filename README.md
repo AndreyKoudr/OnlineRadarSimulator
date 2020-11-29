@@ -22,8 +22,8 @@ the form convenient to supply data to WebGL.
 
 Format of the files can be understood from FillGLBuffers2() in LoadVBO.js.
 
-The solution (only working in Firefox yet)
-------------------------------------------
+The solution (working fine only in Firefox yet)
+-----------------------------------------------
   <B>Firefox</B>
   
   - go to <I>about:config</I>
