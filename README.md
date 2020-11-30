@@ -49,6 +49,8 @@ Tests
 - Chrome
 - Opera
 
+Drag radar.html into a browser.
+
 Licencing
 ---------
 The files Barrett.js, BigInt.js, webgl-utils.js are third-party ones, they contain copyrights of their authors. Other files contain MI Simulators copyright - this is me.
