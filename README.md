@@ -22,7 +22,7 @@ the form convenient to supply data to WebGL.
 
 Format of the files can be understood from FillGLBuffers2() in LoadVBO.js.
 
-The solution (tested in Firefox, Chrome, Opera)
+The solution to CORS problem (tested in Firefox, Chrome, Opera)
 -----------------------------------------------
   <B>Firefox</B>
   
