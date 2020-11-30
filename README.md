@@ -33,10 +33,15 @@ The solution (tested in Firefox, Chrome, Opera)
   <B>Chrome</B>
   
     C:\Program Files\Google\Chrome\Application>chrome.exe --allow-file-access-from-files
+ 
+ (change directory of chrome.exe).
 
   <B>Opera</B>  
   
     C:\Users\andre\AppData\Local\Programs\Opera>launcher.exe --allow-file-access-from-files
+    
+ (change directory of Opere launcher.exe).
+
     
 Tests
 -----
