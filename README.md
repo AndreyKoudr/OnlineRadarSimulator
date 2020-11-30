@@ -40,7 +40,7 @@ The solution (tested in Firefox, Chrome, Opera)
   
     C:\Users\andre\AppData\Local\Programs\Opera>launcher.exe --allow-file-access-from-files
     
- (change directory of Opere launcher.exe).
+ (change directory of Opera launcher.exe).
 
     
 Tests
