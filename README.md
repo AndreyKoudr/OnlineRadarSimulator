@@ -32,11 +32,11 @@ The solution (working fine only in Firefox yet)
 	
   <B>Chrome</B>
   
-    >chrome.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
+    >chrome.exe --disable-web-security --allow-file-access-from-files --user-data-dir="c:/temp" - it did not work for me
 
   <B>Opera</B>  
   
-    >launcher.exe --disable-web-security --user-data-dir="c:/temp" - it did not work for me
+    >launcher.exe --disable-web-security --allow-file-access-from-files --user-data-dir="c:/temp" - it did not work for me
     
 Tests
 -----
