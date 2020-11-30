@@ -1,0 +1,44 @@
+body {
+	margin-top: 1.0em;
+	background-color: #FFFFFF;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	color: #263B42;
+}
+
+table {
+	width: 100%;
+	border:0;
+	border-spacing: 12px;
+	padding: 0px;
+}
+
+h1 {
+	font-size: 25px;
+	margin-bottom: 2px;
+	margin-top: 2px;
+	font-family: Helvetica;
+	font-weight: normal;
+	text-align: center;
+	color: #0000C0;
+}
+
+tr {
+	background-color: #FFFFFF;
+	font-size: 14px;
+}
+
+tr.white {
+	background-color: #FFFFFF;
+}
+
+p {
+	text-align: justify;
+}
+
+.footer {
+	text-align: center;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	font-style: italic;
+	color:#263B42;
+}

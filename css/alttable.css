@@ -1,0 +1,26 @@
+/* table with alternating colors */
+
+.alttable {
+	width:100%;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 12px;
+	border-collapse:collapse;
+}
+.alttable td {
+	padding:4px; border:#4e95f4 1px solid;
+}
+
+/* provide some minimal visual accomodation for IE8 and below */
+.alttable tr {
+	background: #b8d1f3;
+}
+
+/*  Define the background color for all the ODD background rows  */
+.alttable tr:nth-child(odd) {
+	background: #b8d1f3;
+}
+
+/*  Define the background color for all the EVEN background rows  */
+.alttable tr:nth-child(even) {
+	background: #dae5f4;
+}

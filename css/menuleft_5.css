@@ -1,0 +1,104 @@
+#menuleft {
+	width: 200px;
+	margin-top: 2px;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 16px;
+	font-weight: bold;
+}
+	
+#menuleft li a {
+	color: #263B42;
+	background-color: #FFFFFF;
+	text-decoration: none;
+  	height: 28px;
+	border-radius: 4px;
+	box-shadow: 2px 2px 4px #444;
+	margin: 6px;
+}
+	
+#menuleft li a:link, #menuleft li a:visited {
+	color: #0000C0;
+	background-color: #FFFFFF;
+	display: block;
+	padding: 8px 0 0 20px;
+}
+	
+#menuleft li a:hover {
+	color: #FFFFFF;
+	background-color: #0000C0;
+	padding: 8px 0 0 20px;
+}
+	
+#menuleft li a:active {
+	color: #C00000;
+	padding: 8px 0 0 20px;
+}
+
+#menuleft ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+	
+#menuleft li input {
+	color: #263B42;
+	background-color: #FFFFFF;
+	text-decoration: none;
+  	height: 28px;
+	width: 180px;
+	border-radius: 4px;
+	box-shadow: 2px 2px 4px #444;
+	margin: 6px;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 16px;
+	font-weight: bold;
+	text-align: left;
+}
+	
+#menuleft li input[type="text"]:disabled {
+    background: #DDDDDD;
+} 
+	
+#menuleft li input[type="password"] {
+  	height: 28px;
+	width: 180px;
+} 
+	
+#menuleft li input[type="password"]:disabled {
+    background: #DDDDDD;
+} 
+	
+#menuleft li input[type="checkbox"] {
+  	height:	12px;
+	width:  12px;
+	box-shadow: 2px 2px 4px #444;
+} 
+
+#menuleft li label {
+	width:80px;
+	display:block;
+	float:left;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+#menuleft li label.ex {
+	width:180px;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+
+#menuleft li textarea {
+	color: #263B42;
+	background-color: #FFFFFF;
+	text-decoration: none;
+  	height: 120px;
+	width: 180px;
+	border-radius: 4px;
+	box-shadow: 2px 2px 4px #444;
+	margin: 6px;
+	resize: none;
+}

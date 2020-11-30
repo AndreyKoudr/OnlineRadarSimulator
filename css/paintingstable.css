@@ -1,0 +1,20 @@
+/* table with alternating colors */
+
+.paintingstable {
+	width:100%;
+	font-family: Helvetica, Arial, FreeSans, sans-serif;
+	font-size: 10px;
+}
+.paintingstable td {
+	margin: "2 auto";
+	background: whiteSmoke;
+	width: 200px;
+	min-width: 200px;
+	max-width: 200px;
+	height: 256px;
+	min-height: 256px;
+	max-height: 256px;
+	overflow: hidden;
+	padding: 2px;
+	padding-top: 2px;
+}
