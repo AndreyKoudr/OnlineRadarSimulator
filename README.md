@@ -17,12 +17,12 @@ https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors/CORSRequestNotHttp
 
 It means that it is no longer allowed to load binary files from local<B>(!)</B> computer with an http (not https) page.
 It means that debugging of Javascripts can be only done with browsers with some "web-security" configuration options turned OFF.
-These are two files in the Areas folder - they contain Earth surface geometry for an SRTM tile around Rio de Janeiro in
+These are two files in the >I>areas</I> folder - they contain Earth surface geometry for an SRTM tile around Rio de Janeiro in
 the form convenient to supply data to WebGL.
 
 Format of the files can be understood from FillGLBuffers2() in LoadVBO.js.
 
-The solution (working fine only in Firefox yet)
+The solution (tested in Firefox, Chrome, Opera)
 -----------------------------------------------
   <B>Firefox</B>
   
@@ -32,16 +32,17 @@ The solution (working fine only in Firefox yet)
 	
   <B>Chrome</B>
   
-    >chrome.exe --disable-web-security --allow-file-access-from-files --user-data-dir="c:/temp" - it did not work for me
+    C:\Program Files\Google\Chrome\Application>chrome.exe --allow-file-access-from-files
 
   <B>Opera</B>  
   
-    >launcher.exe --disable-web-security --allow-file-access-from-files --user-data-dir="c:/temp" - it did not work for me
+    C:\Users\andre\AppData\Local\Programs\Opera>launcher.exe --allow-file-access-from-files
     
 Tests
 -----
-- set <I>privacy.file_unique_origin</I> to <I>false</I> in Firefox as described above
-- run <I>radar.html</I> with Firefox. It must display terrain like that shown in <I>This is how it must look (README).png</I>
+- Firefox
+- Chrome
+- Opera
 
 Licencing
 ---------
