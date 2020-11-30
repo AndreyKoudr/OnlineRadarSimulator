@@ -456,7 +456,7 @@ function LoadVBO2(url, vbo, gl)
     { 
         if (xhr.readyState == xhr.DONE) 
         {
-            if (xhr.status == 200 && xhr.response) 
+	    if ((xhr.status == 200 || xhr.status == 0) && xhr.response) 
             {
                 FillGLBuffers2(gl,xhr.response,vbo);
 								vboLoading = false;
