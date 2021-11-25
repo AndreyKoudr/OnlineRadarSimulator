@@ -49,7 +49,7 @@ Tests
 - Chrome
 - Opera
 
-Drag radar.html into a browser.
+<B>Drag radar.html into a browser</B>.
 
 Licencing
 ---------
