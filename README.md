@@ -55,5 +55,10 @@ Licencing
 ---------
 The files Barrett.js, BigInt.js, webgl-utils.js are third-party ones, they contain copyrights of their authors. Other files contain MI Simulators copyright - this is me.
 
+This is how it must look
+------------------------
+![FFD](https://github.com/AndreyKoudr/OnlineRadarSimulator/blob/master/"This is how it must look (README).png")<br />
+
+
 
 
