@@ -57,7 +57,7 @@ The files Barrett.js, BigInt.js, webgl-utils.js are third-party ones, they conta
 
 This is how it must look
 ------------------------
-![FFD](https://github.com/AndreyKoudr/OnlineRadarSimulator/blob/master/This%20is%20how%20it%20must%20look%20(README).png)<br />
+![FFD](https://github.com/AndreyKoudr/OnlineRadarSimulator/blob/master/This_is_how_it_must_look_(README).png)<br />
 
 
 
